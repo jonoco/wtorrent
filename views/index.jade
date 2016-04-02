@@ -1,0 +1,19 @@
+doctype html
+html(lang='en')
+	head
+		title wTorrent
+		meta(charset='UTF-8')
+		link(rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous")
+	body
+		.container-fluid
+			h1 wTorrent
+
+			if response
+				p=response
+
+			if files
+				ul
+				for file in files
+					- var path = '/file/' + file
+					li
+						a(href=path)=file
