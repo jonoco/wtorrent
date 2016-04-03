@@ -10,7 +10,6 @@ const app = express();
 const PORT = process.env.PORT || 9000;
 const client = new WebTorrent();
 
-const magnet = 'magnet:?xt=urn:btih:26EE69AD2B9BBCE723C2237D7DFB59F7597388CE';
 const DOWNLOAD_PATH = __dirname + '/downloads/';
 
 app.use(bodyParser.json()); // for parsing application/json
@@ -38,12 +37,12 @@ function download(link, cb) {
       console.log('torrent finished downloading');
 
       torrent.files.forEach(function(file){
-         console.log(file.name);
+         console.log('  downloaded:  ' + file.name);
          file.getBuffer(function callback (err, buffer) {
           let path = DOWNLOAD_PATH + file.name;
 
           fs.writeFile(path, buffer, () => {
-           console.log('file saved: ' + file.name); 
+           console.log('  file saved:  ' + file.name); 
           });
         });
       });

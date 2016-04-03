@@ -32,7 +32,6 @@ var app = (0, _express2.default)();
 var PORT = process.env.PORT || 9000;
 var client = new _webtorrent2.default();
 
-var magnet = 'magnet:?xt=urn:btih:26EE69AD2B9BBCE723C2237D7DFB59F7597388CE';
 var DOWNLOAD_PATH = __dirname + '/downloads/';
 
 app.use(_bodyParser2.default.json()); // for parsing application/json
@@ -60,12 +59,12 @@ function download(link, cb) {
       console.log('torrent finished downloading');
 
       torrent.files.forEach(function (file) {
-        console.log(file.name);
+        console.log('  downloaded:  ' + file.name);
         file.getBuffer(function callback(err, buffer) {
           var path = DOWNLOAD_PATH + file.name;
 
           _fs2.default.writeFile(path, buffer, function () {
-            console.log('file saved: ' + file.name);
+            console.log('  file saved:  ' + file.name);
           });
         });
       });
