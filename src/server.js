@@ -34,7 +34,6 @@ function download(link, cb) {
     });
 
     torrent.on('done', function(){
-      console.log('torrent finished downloading');
 
       torrent.files.forEach(function(file){
          console.log('  downloaded:  ' + file.name);
