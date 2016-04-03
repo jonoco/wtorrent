@@ -36,6 +36,7 @@ var magnet = 'magnet:?xt=urn:btih:26EE69AD2B9BBCE723C2237D7DFB59F7597388CE';
 var DOWNLOAD_PATH = __dirname + '/downloads/';
 
 app.use(_bodyParser2.default.json()); // for parsing application/json
+app.use(_bodyParser2.default.urlencoded({ extended: false })); // for parsing application/x-www-form-urlencoded
 app.use(_express2.default.static(__dirname + '/public'));
 app.set('view engine', 'jade');
 app.set('views', __dirname + '/views');
@@ -75,7 +76,13 @@ function download(link, cb) {
 function getFileNames(path, cb) {
   _fs2.default.readdir(path, function (err, files) {
     if (err) throw err;
-    cb(files);
+
+    // filter out the .keep file from the list
+    var filteredFiles = files.filter(function (file) {
+      if (file != '.keep') return file;
+    });
+
+    cb(filteredFiles);
   });
 }
 
@@ -83,12 +90,11 @@ app.get('/', function (req, res) {
   res.render('index');
 });
 
-// POST /magnet
-app.post('/magnet', _middleware.logger, function (req, res) {
-  var magnet = req.body.magnet;
+// POST /torrent
+app.post('/torrent', _middleware.logger, function (req, res) {
+  var torrent = req.body.torrent;
 
-
-  download(magnet, function (response) {
+  download(torrent, function (response) {
     res.render('index', { response: response });
   });
 });
@@ -121,6 +127,18 @@ app.get('/file/:name', _middleware.logger, function (req, res, next) {
     } else {
       console.log('Sent:', name);
     }
+  });
+});
+
+// DELETE /file/:name
+app.delete('/file/:name', _middleware.logger, function (req, res) {
+  var name = req.params.name;
+
+  var path = DOWNLOAD_PATH + name;
+  _fs2.default.unlink(path, function (err) {
+    if (err) throw err;
+    console.log('Successfully deleted ' + name);
+    res.status(200).send('Successfully deleted ' + name);
   });
 });
 

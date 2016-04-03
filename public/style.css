@@ -1,0 +1,13 @@
+.list-group-item {
+	transition: all .1s ease;
+}
+
+.list-group-item:hover {
+	background-color: #ddd;
+}
+
+.list-group-item .btn {
+	margin-left: 8px;
+}
+
+

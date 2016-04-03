@@ -4,16 +4,42 @@ html(lang='en')
 		title wTorrent
 		meta(charset='UTF-8')
 		link(rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous")
+		link(rel='stylesheet' href='style.css')
+
 	body
 		.container-fluid
-			h1 wTorrent
-
+			h1 #[a(href='/') wTorrent]
+			br
+			h2 
+				a(href="/file") File List
+			br
+			
+			form(
+				action='/torrent'
+				method='POST'
+			)
+				input.form-control(
+					type='text' 
+					placeholder='torrent link'
+					name='torrent'
+				)
 			if response
-				p=response
+				h3=response
 
 			if files
-				ul
+				.list-group
 				for file in files
 					- var path = '/file/' + file
-					li
-						a(href=path)=file
+					.list-group-item.clearfix
+						=file 
+						button.delete.btn.btn-danger.pull-right(
+							data-file=file
+						)
+							span.glyphicon.glyphicon-remove
+						a(href=path).btn.btn-primary.pull-right
+							span.glyphicon.glyphicon-save
+
+		// scripts
+		script(type='text/javascript' src='axios.min.js')
+		script(type='text/javascript' src='script.js')
+
