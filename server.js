@@ -26,13 +26,90 @@ var _jade = require('jade');
 
 var _jade2 = _interopRequireDefault(_jade);
 
+var _googleapis = require('googleapis');
+
+var _googleapis2 = _interopRequireDefault(_googleapis);
+
+var _googleAuthLibrary = require('google-auth-library');
+
+var _googleAuthLibrary2 = _interopRequireDefault(_googleAuthLibrary);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+// Google integration
+
+// If modifying these scopes, delete your previously saved credentials
+// at ~/.credentials/drive-nodejs-quickstart.json
+var SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE) + '/.credentials/';
+var TOKEN_PATH = TOKEN_DIR + 'wtorrent.json';
+
+var oauth2Client = void 0;
+
+/**
+ * Create an OAuth2 client with the given credentials, and then execute the
+ * given callback function.
+ *
+ * @param {Object} credentials The authorization client credentials.
+ * @param {function} callback The callback to call with the authorized client.
+ */
+function authorize(credentials, callback) {
+  var clientSecret = credentials.web.client_secret;
+  var clientId = credentials.web.client_id;
+  var redirectUrl = credentials.web.redirect_uris[0];
+  var auth = new _googleAuthLibrary2.default();
+  oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl);
+
+  // Check if we have previously stored a token.
+  _fs2.default.readFile(TOKEN_PATH, function (err, token) {
+    if (err) {
+      getNewToken(oauth2Client, callback);
+    } else {
+      oauth2Client.credentials = JSON.parse(token);
+      callback(null);
+    }
+  });
+}
+
+/**
+ * Get and store new token after prompting for user authorization, and then
+ * execute the given callback with the authorized OAuth2 client.
+ *
+ * @param {google.auth.OAuth2} oauth2Client The OAuth2 client to get token for.
+ * @param {getEventsCallback} callback The callback to call with the authorized
+ *     client.
+ */
+function getNewToken(oauth2Client, callback) {
+  var authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: SCOPES
+  });
+
+  callback(null, authUrl);
+}
+
+/**
+ * Store token to disk be used in later program executions.
+ *
+ * @param {Object} token The token to store to disk.
+ */
+function storeToken(token) {
+  try {
+    _fs2.default.mkdirSync(TOKEN_DIR);
+  } catch (err) {
+    if (err.code != 'EEXIST') {
+      throw err;
+    }
+  }
+  _fs2.default.writeFile(TOKEN_PATH, JSON.stringify(token));
+  console.log('Token stored to ' + TOKEN_PATH);
+}
+
+// END Google integration
 
 var app = (0, _express2.default)();
 var PORT = process.env.PORT || 9000;
 var client = new _webtorrent2.default();
-
-var DOWNLOAD_PATH = __dirname + '/downloads/';
 
 app.use(_bodyParser2.default.json()); // for parsing application/json
 app.use(_bodyParser2.default.urlencoded({ extended: false })); // for parsing application/x-www-form-urlencoded
@@ -56,15 +133,22 @@ function download(link, cb) {
     });
 
     torrent.on('done', function () {
+      var drive = _googleapis2.default.drive({ version: 'v2', auth: oauth2Client });
 
       torrent.files.forEach(function (file) {
         console.log('  downloaded:  ' + file.name);
-        file.getBuffer(function callback(err, buffer) {
-          var path = DOWNLOAD_PATH + file.name;
 
-          _fs2.default.writeFile(path, buffer, function () {
-            console.log('  file saved:  ' + file.name);
-          });
+        drive.files.insert({
+          resource: {
+            title: file.name
+          },
+          media: {
+            body: file.createReadStream() // read streams are awesome!
+          }
+        }, function (err, response) {
+          if (err) console.log('error:', err);
+
+          console.log('Uploaded to drive:', response.id);
         });
       });
     });
@@ -85,7 +169,41 @@ function getFileNames(path, cb) {
 }
 
 app.get('/', function (req, res) {
-  res.render('index');
+  // Load client secrets from a local file.
+  _fs2.default.readFile('client_secret.json', function (err, content) {
+    if (err) {
+      console.log('Error loading client secret file: ' + err);
+      return res.status(500).send('Error loading client secret file: ' + err);
+    }
+
+    // Authorize a client with the loaded credentials
+    authorize(JSON.parse(content), function (err, redirect) {
+      if (err) return res.status(500).send();
+
+      if (redirect) return res.redirect(redirect);
+
+      res.render('index');
+    });
+  });
+});
+
+app.get('/auth', function (req, res) {
+  var code = req.query.code;
+
+  console.log('auth token: ', code);
+
+  oauth2Client.getToken(code, function (err, token) {
+    if (err) {
+      console.log('Error while trying to retrieve access token', err);
+      return res.status(500).send('Error while trying to retrieve access token');
+    }
+
+    console.log('Token granted');
+
+    oauth2Client.credentials = token;
+    storeToken(token);
+    res.redirect('http://localhost:9000');
+  });
 });
 
 // POST /torrent
