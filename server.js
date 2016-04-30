@@ -54,11 +54,11 @@ var oauth2Client = void 0;
  * @param {function} callback The callback to call with the authorized client.
  */
 function authorize(credentials, callback) {
+  var REDIRECT_PATH = process.env.NODE_ENV === 'production' ? 'https://wtorrent.herokuapp.com/auth' : 'http://localhost:9000/auth';
   var clientSecret = credentials.web.client_secret;
   var clientId = credentials.web.client_id;
-  var redirectUrl = credentials.web.redirect_uris[0];
   var auth = new _googleAuthLibrary2.default();
-  oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl);
+  oauth2Client = new auth.OAuth2(clientId, clientSecret, REDIRECT_PATH);
 
   // Check if we have previously stored a token.
   _fs2.default.readFile(TOKEN_PATH, function (err, token) {
@@ -202,7 +202,7 @@ app.get('/auth', function (req, res) {
 
     oauth2Client.credentials = token;
     storeToken(token);
-    res.redirect('http://localhost:9000');
+    res.redirect('/');
   });
 });
 
