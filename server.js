@@ -22,6 +22,10 @@ var _fs = require('fs');
 
 var _fs2 = _interopRequireDefault(_fs);
 
+var _path = require('path');
+
+var _path2 = _interopRequireDefault(_path);
+
 var _jade = require('jade');
 
 var _jade2 = _interopRequireDefault(_jade);
@@ -110,6 +114,7 @@ function storeToken(token) {
 var app = (0, _express2.default)();
 var PORT = process.env.PORT || 9000;
 var client = new _webtorrent2.default();
+var timeout = 1000;
 
 app.use(_bodyParser2.default.json()); // for parsing application/json
 app.use(_bodyParser2.default.urlencoded({ extended: false })); // for parsing application/x-www-form-urlencoded
@@ -123,6 +128,7 @@ function download(link, cb) {
     var message = 'Client is downloading: ' + torrent.infoHash;
     console.log(message);
     cb(message);
+    timeout = 1000;
 
     torrent.on('download', function (chunkSize) {
       console.log('chunk size: ' + chunkSize);
@@ -133,25 +139,43 @@ function download(link, cb) {
     });
 
     torrent.on('done', function () {
-      var drive = _googleapis2.default.drive({ version: 'v2', auth: oauth2Client });
-
-      torrent.files.forEach(function (file) {
-        console.log('  downloaded:  ' + file.name);
-
-        drive.files.insert({
-          resource: {
-            title: file.name
-          },
-          media: {
-            body: file.createReadStream() // read streams are awesome!
-          }
-        }, function (err, response) {
-          if (err) console.log('error:', err);
-
-          console.log('Uploaded to drive:', response.id);
-        });
-      });
+      upload(torrent);
     });
+  });
+}
+
+function upload(torrent) {
+  var drive = _googleapis2.default.drive({ version: 'v2', auth: oauth2Client });
+
+  torrent.files.forEach(function (file) {
+    console.log('  downloaded:  ' + file.name);
+
+    drive.files.insert({
+      resource: {
+        title: file.name
+      },
+      media: {
+        body: file.createReadStream() // read streams are awesome!
+      }
+    }, function (err, response) {
+      if (err) {
+        console.log('error:', err);
+        if (err.code === 403) return setTimeout(upload, timeout * 10, torrent);
+      }
+
+      if (response) {
+        console.log('Uploaded to drive:', response.id);
+        deleteFile(file, torrent.path);
+      }
+    });
+  });
+}
+
+function deleteFile(file, path) {
+  var filePath = path + '/' + file.path;
+  _fs2.default.unlink(filePath, function (err) {
+    if (err) throw err;
+    console.log('Successfully deleted ' + file.name);
   });
 }
 

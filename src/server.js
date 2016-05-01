@@ -4,6 +4,7 @@ import { logger } from './middleware';
 import WebTorrent from 'webtorrent';
 import bodyParser from 'body-parser';
 import fs from 'fs';
+import path from 'path';
 import jade from 'jade';
 
 import google from 'googleapis';
@@ -32,7 +33,7 @@ function authorize(credentials, callback) {
   const clientId = credentials.web.client_id;
   const auth = new googleAuth();
   oauth2Client = new auth.OAuth2(clientId, clientSecret, REDIRECT_PATH);
-  
+
   // Check if we have previously stored a token.
   fs.readFile(TOKEN_PATH, function(err, token) {
     if (err) {
@@ -83,6 +84,7 @@ function storeToken(token) {
 const app = express();
 const PORT = process.env.PORT || 9000;
 const client = new WebTorrent();
+let timeout = 1000;
 
 app.use(bodyParser.json()); // for parsing application/json
 app.use(bodyParser.urlencoded({ extended: false })); // for parsing application/x-www-form-urlencoded
@@ -96,6 +98,7 @@ function download(link, cb) {
     const message = 'Client is downloading: ' + torrent.infoHash;
     console.log(message);
     cb(message);
+    timeout = 1000;
 
     torrent.on('download', function(chunkSize){
       console.log('chunk size: ' + chunkSize);
@@ -106,25 +109,43 @@ function download(link, cb) {
     });
 
     torrent.on('done', function(){
-      let drive = google.drive({ version: 'v2', auth: oauth2Client });
-
-      torrent.files.forEach(function(file){
-        console.log('  downloaded:  ' + file.name);
-        
-        drive.files.insert({
-          resource: {
-            title: file.name
-          },
-          media: {
-            body: file.createReadStream() // read streams are awesome!
-          }
-        }, function (err, response) {
-          if (err) console.log('error:', err);
-
-          console.log('Uploaded to drive:', response.id);
-        });         
-      });
+      upload(torrent);
     });
+  });
+}
+
+function upload(torrent) {
+  const drive = google.drive({ version: 'v2', auth: oauth2Client });
+  
+  torrent.files.forEach(function(file){
+    console.log('  downloaded:  ' + file.name);
+    
+    drive.files.insert({
+      resource: {
+        title: file.name
+      },
+      media: {
+        body: file.createReadStream() // read streams are awesome!
+      }
+    }, function (err, response) {
+      if (err) {
+        console.log('error:', err);
+        if (err.code === 403) return setTimeout(upload, timeout*10, torrent);
+      }
+
+      if (response) {
+        console.log('Uploaded to drive:', response.id);
+        deleteFile(file, torrent.path);
+      }
+    });         
+  });
+}
+
+function deleteFile(file, path) {
+  const filePath = path + '/' + file.path;
+  fs.unlink(filePath, err => {
+    if (err) throw err;
+    console.log('Successfully deleted ' + file.name);
   });
 }
 
