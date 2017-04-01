@@ -30,6 +30,10 @@ var _jade = require('jade');
 
 var _jade2 = _interopRequireDefault(_jade);
 
+var _archiver = require('archiver');
+
+var _archiver2 = _interopRequireDefault(_archiver);
+
 var _googleapis = require('googleapis');
 
 var _googleapis2 = _interopRequireDefault(_googleapis);
@@ -136,6 +140,11 @@ app.set('views', __dirname + '/views');
 
 function download(link, cb) {
 
+  client.on('error', function (err) {
+    console.log(err);
+    cb(err);
+  });
+
   client.add(link, function (torrent) {
     var message = 'Client is downloading: ' + torrent.infoHash;
     console.log(message);
@@ -151,7 +160,7 @@ function download(link, cb) {
     });
 
     torrent.on('done', function () {
-      upload(torrent);
+      uploadCompressed(torrent);
     });
   });
 }
@@ -167,7 +176,7 @@ function upload(torrent) {
         title: file.name
       },
       media: {
-        body: file.createReadStream() // read streams are awesome!
+        body: file.createReadStream()
       }
     }, function (err, response) {
       if (err) {
@@ -181,6 +190,59 @@ function upload(torrent) {
       }
     });
   });
+}
+
+function uploadCompressed(torrent) {
+  var drive = _googleapis2.default.drive({ version: 'v2', auth: oauth2Client });
+  var title = torrent.infoHash + '.zip';
+
+  // create a file to stream archive data to.
+  var output = _fs2.default.createWriteStream(__dirname + '/' + title);
+  var archive = (0, _archiver2.default)('zip', {
+    zlib: { level: 9 } // Sets the compression level.
+  });
+
+  // listen for all archive data to be written
+  output.on('close', function () {
+    console.log(archive.pointer() + ' total bytes');
+    console.log('archiver has been finalized and the output file descriptor has closed.');
+
+    drive.files.insert({
+      resource: {
+        title: title
+      },
+      media: {
+        body: _fs2.default.createReadStream(__dirname + '/' + title)
+      }
+    }, function (err, response) {
+      if (err) {
+        console.log('error:', err);
+        if (err.code === 403) return setTimeout(uploadCompressed, timeout * 10, torrent);
+      }
+
+      if (response) {
+        console.log('Uploaded to drive:', title);
+
+        torrent.files.forEach(function (file) {
+          deleteFile(file, torrent.path);
+        });
+
+        _fs2.default.unlink(__dirname + '/' + title);
+      }
+    });
+  });
+
+  // pipe archive data to the file
+  archive.pipe(output);
+
+  torrent.files.forEach(function (file) {
+    console.log('compressing:  ' + file.name);
+
+    var tFile = file.createReadStream();
+    archive.append(tFile, { name: file.name });
+  });
+
+  archive.finalize();
 }
 
 function deleteFile(file, path) {

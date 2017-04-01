@@ -6,6 +6,7 @@ import bodyParser from 'body-parser';
 import fs from 'fs';
 import path from 'path';
 import jade from 'jade';
+import archiver from 'archiver';
 
 import google from 'googleapis';
 import googleAuth from 'google-auth-library';
@@ -110,6 +111,11 @@ app.set('views', __dirname + '/views');
 
 function download(link, cb) {
   
+  client.on('error', function (err) {
+    console.log(err);
+    cb(err);
+  });
+
   client.add(link, function(torrent) {
     const message = 'Client is downloading: ' + torrent.infoHash;
     console.log(message);
@@ -125,7 +131,7 @@ function download(link, cb) {
     });
 
     torrent.on('done', function(){
-      upload(torrent);
+      uploadCompressed(torrent);
     });
   });
 }
@@ -155,6 +161,60 @@ function upload(torrent) {
       }
     });         
   });
+}
+
+function uploadCompressed(torrent) {
+  const drive = google.drive({ version: 'v2', auth: oauth2Client });
+  const title = torrent.infoHash + '.zip';
+
+  // create a file to stream archive data to.
+  var output = fs.createWriteStream(__dirname + '/' + title);
+  var archive = archiver('zip', {
+      zlib: { level: 9 } // Sets the compression level.
+  });
+
+  // listen for all archive data to be written
+  output.on('close', function() {
+    console.log(archive.pointer() + ' total bytes');
+    console.log('archiver has been finalized and the output file descriptor has closed.');
+
+    drive.files.insert({
+      resource: {
+        title: title
+      },
+      media: {
+        body: fs.createReadStream(__dirname + '/' + title)
+      }
+    }, function (err, response) {
+      if (err) {
+        console.log('error:', err);
+        if (err.code === 403) return setTimeout(uploadCompressed, timeout*10, torrent);
+      }
+
+      if (response) {
+        console.log('Uploaded to drive:', title);
+        
+        torrent.files.forEach(function(file) {
+          deleteFile(file, torrent.path);
+        });
+        
+        fs.unlink(__dirname + '/' + title);
+      }
+    });
+  });
+
+  // pipe archive data to the file
+  archive.pipe(output);
+
+  torrent.files.forEach(function(file){
+    console.log('compressing:  ' + file.name);
+
+    const tFile = file.createReadStream();
+    archive.append(tFile, { name: file.name });
+
+  });
+
+  archive.finalize();
 }
 
 function deleteFile(file, path) {
