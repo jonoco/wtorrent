@@ -15,7 +15,9 @@ import googleAuth from 'google-auth-library';
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/drive-nodejs-quickstart.json
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE) + '/.credentials/';
+const TOKEN_DIR = (process.env.HOME ||
+                   process.env.HOMEPATH ||
+                   process.env.USERPROFILE) + '/.credentials/';
 const TOKEN_PATH = TOKEN_DIR + 'wtorrent.json';
 
 let oauth2Client;
@@ -28,21 +30,35 @@ let oauth2Client;
  * @param {function} callback The callback to call with the authorized client.
  */
 function authorize(credentials, callback) {
-  const REDIRECT_PATH = process.env.NODE_ENV === 'production' ? 'https://wtorrent.herokuapp.com/auth' : 'http://localhost:9000/auth';
-  const clientSecret = credentials.web.client_secret;
-  const clientId = credentials.web.client_id;
-  const auth = new googleAuth();
-  oauth2Client = new auth.OAuth2(clientId, clientSecret, REDIRECT_PATH);
+  generateClient(credentials);
+
+  getNewToken(oauth2Client, callback);
+}
+
+function login(credentials, callback) {
+  generateClient(credentials);
 
   // Check if we have previously stored a token.
   fs.readFile(TOKEN_PATH, function(err, token) {
     if (err) {
+      console.log('get new token');
       getNewToken(oauth2Client, callback);
     } else {
+      console.log('token found');
       oauth2Client.credentials = JSON.parse(token);
       callback(null);
     }
   });
+}
+
+function generateClient(credentials) {
+  const REDIRECT_PATH = process.env.NODE_ENV === 'production' ?
+                       'https://wtorrent.herokuapp.com/auth' :
+                       'http://localhost:9000/auth';
+  const clientSecret = credentials.web.client_secret;
+  const clientId = credentials.web.client_id;
+  const auth = new googleAuth();
+  oauth2Client = new auth.OAuth2(clientId, clientSecret, REDIRECT_PATH);
 }
 
 /**
@@ -118,14 +134,14 @@ function upload(torrent) {
   const drive = google.drive({ version: 'v2', auth: oauth2Client });
   
   torrent.files.forEach(function(file){
-    console.log('  downloaded:  ' + file.name);
+    console.log('downloaded:  ' + file.name);
     
     drive.files.insert({
       resource: {
         title: file.name
       },
       media: {
-        body: file.createReadStream() // read streams are awesome!
+        body: file.createReadStream()
       }
     }, function (err, response) {
       if (err) {
@@ -134,7 +150,7 @@ function upload(torrent) {
       }
 
       if (response) {
-        console.log('Uploaded to drive:', response.id);
+        console.log('Uploaded to drive:', file.name);
         deleteFile(file, torrent.path);
       }
     });         
@@ -171,12 +187,31 @@ app.get('/', (req, res) => {
     }
     
     // Authorize a client with the loaded credentials
-    authorize(JSON.parse(content), (err, redirect) => {
+    login(JSON.parse(content), (err, redirect) => {
       if (err) return res.status(500).send();
       
       if (redirect) return res.redirect(redirect);
 
       res.render('index');
+    });
+  });
+});
+
+app.get('/login', (req, res) => {
+  // Load client secrets from a local file.
+  fs.readFile('client_secret.json', (err, content) => {
+    if (err) {
+      console.log('Error loading client secret file: ' + err);
+      return res.status(500).send('Error loading client secret file: ' + err);
+    }
+    
+    // Authorize a client with the loaded credentials
+    authorize(JSON.parse(content), (err, redirect) => {
+      if (err) return res.status(500).send();
+      
+      if (redirect) return res.redirect(redirect);
+
+      res.redirect('/');
     });
   });
 });
@@ -206,49 +241,6 @@ app.post('/torrent', logger, (req, res) => {
     res.render('index', { response });
   });
 
-});
-
-// GET /file
-app.get('/file', logger, (req, res) => {
-  const files = getFileNames(DOWNLOAD_PATH, files => {
-    res.render('index', { files });  
-  });  
-});
-
-// GET /file/:name
-app.get('/file/:name', logger, (req, res, next) => {
-
-  const { name } = req.params;
-
-  const options = {
-    root: __dirname + '/downloads/',
-    dotfiles: 'deny',
-    headers: {
-        'x-timestamp': Date.now(),
-        'x-sent': true
-    }
-  };
- 
-  res.sendFile(name, options, err => {
-    if (err) {
-      console.log(err);
-      res.status(err.status).end();
-    }
-    else {
-      console.log('Sent:', name);
-    }
-  });
-});
-
-// DELETE /file/:name
-app.delete('/file/:name', logger, (req, res) => {
-  const { name } = req.params;
-  const path = DOWNLOAD_PATH + name;
-  fs.unlink(path, err => {
-    if (err) throw err;
-    console.log('Successfully deleted ' + name);
-    res.status(200).send('Successfully deleted ' + name);
-  });
 });
 
 // Handle 404

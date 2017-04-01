@@ -58,21 +58,33 @@ var oauth2Client = void 0;
  * @param {function} callback The callback to call with the authorized client.
  */
 function authorize(credentials, callback) {
+  generateClient(credentials);
+
+  getNewToken(oauth2Client, callback);
+}
+
+function login(credentials, callback) {
+  generateClient(credentials);
+
+  // Check if we have previously stored a token.
+  _fs2.default.readFile(TOKEN_PATH, function (err, token) {
+    if (err) {
+      console.log('get new token');
+      getNewToken(oauth2Client, callback);
+    } else {
+      console.log('token found');
+      oauth2Client.credentials = JSON.parse(token);
+      callback(null);
+    }
+  });
+}
+
+function generateClient(credentials) {
   var REDIRECT_PATH = process.env.NODE_ENV === 'production' ? 'https://wtorrent.herokuapp.com/auth' : 'http://localhost:9000/auth';
   var clientSecret = credentials.web.client_secret;
   var clientId = credentials.web.client_id;
   var auth = new _googleAuthLibrary2.default();
   oauth2Client = new auth.OAuth2(clientId, clientSecret, REDIRECT_PATH);
-
-  // Check if we have previously stored a token.
-  _fs2.default.readFile(TOKEN_PATH, function (err, token) {
-    if (err) {
-      getNewToken(oauth2Client, callback);
-    } else {
-      oauth2Client.credentials = JSON.parse(token);
-      callback(null);
-    }
-  });
 }
 
 /**
@@ -148,7 +160,7 @@ function upload(torrent) {
   var drive = _googleapis2.default.drive({ version: 'v2', auth: oauth2Client });
 
   torrent.files.forEach(function (file) {
-    console.log('  downloaded:  ' + file.name);
+    console.log('downloaded:  ' + file.name);
 
     drive.files.insert({
       resource: {
@@ -164,7 +176,7 @@ function upload(torrent) {
       }
 
       if (response) {
-        console.log('Uploaded to drive:', response.id);
+        console.log('Uploaded to drive:', file.name);
         deleteFile(file, torrent.path);
       }
     });
@@ -201,12 +213,31 @@ app.get('/', function (req, res) {
     }
 
     // Authorize a client with the loaded credentials
-    authorize(JSON.parse(content), function (err, redirect) {
+    login(JSON.parse(content), function (err, redirect) {
       if (err) return res.status(500).send();
 
       if (redirect) return res.redirect(redirect);
 
       res.render('index');
+    });
+  });
+});
+
+app.get('/login', function (req, res) {
+  // Load client secrets from a local file.
+  _fs2.default.readFile('client_secret.json', function (err, content) {
+    if (err) {
+      console.log('Error loading client secret file: ' + err);
+      return res.status(500).send('Error loading client secret file: ' + err);
+    }
+
+    // Authorize a client with the loaded credentials
+    authorize(JSON.parse(content), function (err, redirect) {
+      if (err) return res.status(500).send();
+
+      if (redirect) return res.redirect(redirect);
+
+      res.redirect('/');
     });
   });
 });
@@ -236,49 +267,6 @@ app.post('/torrent', _middleware.logger, function (req, res) {
 
   download(torrent, function (response) {
     res.render('index', { response: response });
-  });
-});
-
-// GET /file
-app.get('/file', _middleware.logger, function (req, res) {
-  var files = getFileNames(DOWNLOAD_PATH, function (files) {
-    res.render('index', { files: files });
-  });
-});
-
-// GET /file/:name
-app.get('/file/:name', _middleware.logger, function (req, res, next) {
-  var name = req.params.name;
-
-
-  var options = {
-    root: __dirname + '/downloads/',
-    dotfiles: 'deny',
-    headers: {
-      'x-timestamp': Date.now(),
-      'x-sent': true
-    }
-  };
-
-  res.sendFile(name, options, function (err) {
-    if (err) {
-      console.log(err);
-      res.status(err.status).end();
-    } else {
-      console.log('Sent:', name);
-    }
-  });
-});
-
-// DELETE /file/:name
-app.delete('/file/:name', _middleware.logger, function (req, res) {
-  var name = req.params.name;
-
-  var path = DOWNLOAD_PATH + name;
-  _fs2.default.unlink(path, function (err) {
-    if (err) throw err;
-    console.log('Successfully deleted ' + name);
-    res.status(200).send('Successfully deleted ' + name);
   });
 });
 
