@@ -170,7 +170,7 @@ function uploadCompressed(torrent) {
   // create a file to stream archive data to.
   var output = fs.createWriteStream(__dirname + '/' + title);
   var archive = archiver('zip', {
-      zlib: { level: 9 } // Sets the compression level.
+      zlib: { level: 0 } // Sets the compression level.
   });
 
   // listen for all archive data to be written
