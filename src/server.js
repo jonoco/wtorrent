@@ -117,7 +117,7 @@ function download(link, cb) {
   });
 
   client.add(link, function(torrent) {
-    const message = 'Client is downloading: ' + torrent.infoHash;
+    const message = 'Client is downloading: ' + torrent.name;
     console.log(message);
     cb(message);
     timeout = 1000;
@@ -165,7 +165,7 @@ function upload(torrent) {
 
 function uploadCompressed(torrent) {
   const drive = google.drive({ version: 'v2', auth: oauth2Client });
-  const title = torrent.infoHash + '.zip';
+  const title = torrent.name + '.zip';
 
   // create a file to stream archive data to.
   var output = fs.createWriteStream(__dirname + '/' + title);

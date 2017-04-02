@@ -146,7 +146,7 @@ function download(link, cb) {
   });
 
   client.add(link, function (torrent) {
-    var message = 'Client is downloading: ' + torrent.infoHash;
+    var message = 'Client is downloading: ' + torrent.name;
     console.log(message);
     cb(message);
     timeout = 1000;
@@ -194,12 +194,12 @@ function upload(torrent) {
 
 function uploadCompressed(torrent) {
   var drive = _googleapis2.default.drive({ version: 'v2', auth: oauth2Client });
-  var title = torrent.infoHash + '.zip';
+  var title = torrent.name + '.zip';
 
   // create a file to stream archive data to.
   var output = _fs2.default.createWriteStream(__dirname + '/' + title);
   var archive = (0, _archiver2.default)('zip', {
-    zlib: { level: 9 } // Sets the compression level.
+    zlib: { level: 0 } // Sets the compression level.
   });
 
   // listen for all archive data to be written
