@@ -12,7 +12,7 @@
   "author": "Joshua N. Cox <joshua.n.cox@gmail.com> (http://jonoco.me/)",
   "license": "MIT",
   "engines": {
-    "node": "5.10.x",
+    "node": "6.11.x",
     "npm": "3.5.x"
   },
   "dependencies": {
