@@ -12,13 +12,13 @@ html(lang='en')
 			br
 
 			a(href='/login').btn Login
-			
+
 			form(
 				action='/torrent'
 				method='POST'
 			)
 				input.form-control(
-					type='text' 
+					type='text'
 					placeholder='torrent link'
 					name='torrent'
 				)
@@ -30,7 +30,7 @@ html(lang='en')
 				for file in files
 					- var path = '/file/' + file
 					.list-group-item.clearfix
-						=file 
+						=file
 						button.delete.btn.btn-danger.pull-right(
 							data-file=file
 						)
@@ -39,7 +39,6 @@ html(lang='en')
 							span.glyphicon.glyphicon-save
 
 		// scripts
-		
 		script(type='text/javascript' src='axios.min.js')
 		script(type='text/javascript' src='script.js')
 
