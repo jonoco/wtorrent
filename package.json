@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "babel src -w -d ./",
+    "make": "babel src -w -d ./",
     "serve": "nodemon server.js",
     "test": "mocha --compilers js:babel-register"
   },
