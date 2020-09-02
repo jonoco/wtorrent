@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import jade from 'jade';
 import archiver from 'archiver';
+import _ from 'underscore';
 
 import google from 'googleapis';
 import googleAuth from 'google-auth-library';
@@ -92,7 +93,7 @@ function storeToken(token) {
       throw err;
     }
   }
-  fs.writeFile(TOKEN_PATH, JSON.stringify(token));
+  fs.writeFileSync(TOKEN_PATH, JSON.stringify(token));
   console.log('Token stored to ' + TOKEN_PATH);
 }
 
@@ -110,7 +111,7 @@ app.set('view engine', 'jade');
 app.set('views', __dirname + '/views');
 
 function download(link, cb) {
-  
+
   client.on('error', function (err) {
     console.log(err);
     cb(err);
@@ -122,13 +123,14 @@ function download(link, cb) {
     cb(message);
     timeout = 1000;
 
-    torrent.on('download', function(chunkSize){
-      console.log('chunk size: ' + chunkSize);
-      console.log('total downloaded: ' + torrent.downloaded);
-      console.log('download speed: ' + torrent.downloadSpeed);
-      console.log('progress: ' + torrent.progress);
-      console.log('======');
-    });
+    const debouncedLog = _.debounce(function() {
+      console.log('total downloaded: ' + (torrent.downloaded / 1000000) + ' Mb');
+      console.log('download speed: ' + (torrent.downloadSpeed / 1000000) + ' Mbs');
+      console.log('progress: ' + Math.floor(torrent.progress * 100) + '%');
+      console.log('====================================');
+    }, 1000)
+
+    torrent.on('download', debouncedLog);
 
     torrent.on('done', function(){
       uploadCompressed(torrent);
@@ -138,10 +140,10 @@ function download(link, cb) {
 
 function upload(torrent) {
   const drive = google.drive({ version: 'v2', auth: oauth2Client });
-  
+
   torrent.files.forEach(function(file){
     console.log('downloaded:  ' + file.name);
-    
+
     drive.files.insert({
       resource: {
         title: file.name
@@ -159,7 +161,7 @@ function upload(torrent) {
         console.log('Uploaded to drive:', file.name);
         deleteFile(file, torrent.path);
       }
-    });         
+    });
   });
 }
 
@@ -193,11 +195,11 @@ function uploadCompressed(torrent) {
 
       if (response) {
         console.log('Uploaded to drive:', title);
-        
+
         torrent.files.forEach(function(file) {
           deleteFile(file, torrent.path);
         });
-        
+
         fs.unlink(__dirname + '/' + title);
       }
     });
@@ -228,7 +230,7 @@ function deleteFile(file, path) {
 function getFileNames(path, cb) {
   fs.readdir(path, (err, files) => {
     if (err) throw err;
-    
+
     // filter out the .keep file from the list
     let filteredFiles = files.filter(file => {
       if (file != '.keep') return file;
@@ -245,11 +247,11 @@ app.get('/', (req, res) => {
       console.log('Error loading client secret file: ' + err);
       return res.status(500).send('Error loading client secret file: ' + err);
     }
-    
+
     // Authorize a client with the loaded credentials
     login(JSON.parse(content), (err, redirect) => {
       if (err) return res.status(500).send();
-      
+
       if (redirect) return res.redirect(redirect);
 
       res.render('index');
@@ -264,11 +266,11 @@ app.get('/login', (req, res) => {
       console.log('Error loading client secret file: ' + err);
       return res.status(500).send('Error loading client secret file: ' + err);
     }
-    
+
     // Authorize a client with the loaded credentials
     authorize(JSON.parse(content), (err, redirect) => {
       if (err) return res.status(500).send();
-      
+
       if (redirect) return res.redirect(redirect);
 
       res.redirect('/');
@@ -285,7 +287,7 @@ app.get('/auth', (req, res) => {
       console.log('Error while trying to retrieve access token', err);
       return res.status(500).send('Error while trying to retrieve access token');
     }
-    
+
     console.log('Token granted');
 
     oauth2Client.credentials = token;
@@ -315,5 +317,5 @@ app.use( (err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Listening on port ${PORT}...`);  
-}); 
+  console.log(`Listening on port ${PORT}...`);
+});

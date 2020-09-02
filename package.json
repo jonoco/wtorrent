@@ -22,6 +22,7 @@
     "google-auth-library": "0.9.7",
     "googleapis": "5.2.1",
     "jade": "1.11.0",
+    "underscore": "1.11.0",
     "webtorrent": "0.89.0"
   },
   "devDependencies": {

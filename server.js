@@ -34,6 +34,10 @@ var _archiver = require('archiver');
 
 var _archiver2 = _interopRequireDefault(_archiver);
 
+var _underscore = require('underscore');
+
+var _underscore2 = _interopRequireDefault(_underscore);
+
 var _googleapis = require('googleapis');
 
 var _googleapis2 = _interopRequireDefault(_googleapis);
@@ -121,7 +125,7 @@ function storeToken(token) {
       throw err;
     }
   }
-  _fs2.default.writeFile(TOKEN_PATH, JSON.stringify(token));
+  _fs2.default.writeFileSync(TOKEN_PATH, JSON.stringify(token));
   console.log('Token stored to ' + TOKEN_PATH);
 }
 
@@ -151,13 +155,14 @@ function download(link, cb) {
     cb(message);
     timeout = 1000;
 
-    torrent.on('download', function (chunkSize) {
-      console.log('chunk size: ' + chunkSize);
-      console.log('total downloaded: ' + torrent.downloaded);
-      console.log('download speed: ' + torrent.downloadSpeed);
-      console.log('progress: ' + torrent.progress);
-      console.log('======');
-    });
+    var debouncedLog = _underscore2.default.debounce(function () {
+      console.log('total downloaded: ' + torrent.downloaded / 1000000 + ' Mb');
+      console.log('download speed: ' + torrent.downloadSpeed / 1000000 + ' Mbs');
+      console.log('progress: ' + torrent.progress * 100 + '%');
+      console.log('====================================');
+    }, 1000);
+
+    torrent.on('download', debouncedLog);
 
     torrent.on('done', function () {
       uploadCompressed(torrent);
