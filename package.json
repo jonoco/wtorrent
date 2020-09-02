@@ -20,7 +20,7 @@
     "body-parser": "1.14.2",
     "express": "4.13.3",
     "google-auth-library": "0.9.7",
-    "googleapis": "5.2.1",
+    "googleapis": "39.1.0",
     "jade": "1.11.0",
     "underscore": "1.11.0",
     "webtorrent": "0.89.0"
