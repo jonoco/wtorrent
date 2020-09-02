@@ -125,7 +125,11 @@ function storeToken(token) {
       throw err;
     }
   }
-  _fs2.default.writeFileSync(TOKEN_PATH, JSON.stringify(token));
+  _fs2.default.writeFile(TOKEN_PATH, JSON.stringify(token), function (err) {
+    if (err) {
+      console.log('error:', err);
+    }
+  });
   console.log('Token stored to ' + TOKEN_PATH);
 }
 
@@ -158,7 +162,7 @@ function download(link, cb) {
     var debouncedLog = _underscore2.default.debounce(function () {
       console.log('total downloaded: ' + torrent.downloaded / 1000000 + ' Mb');
       console.log('download speed: ' + torrent.downloadSpeed / 1000000 + ' Mbs');
-      console.log('progress: ' + torrent.progress * 100 + '%');
+      console.log('progress: ' + Math.floor(torrent.progress * 100) + '%');
       console.log('====================================');
     }, 1000);
 
@@ -232,7 +236,11 @@ function uploadCompressed(torrent) {
           deleteFile(file, torrent.path);
         });
 
-        _fs2.default.unlink(__dirname + '/' + title);
+        _fs2.default.unlink(__dirname + '/' + title, function (err) {
+          if (err) {
+            console.log('error:', err);
+          }
+        });
       }
     });
   });

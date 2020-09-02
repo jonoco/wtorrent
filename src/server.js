@@ -93,7 +93,11 @@ function storeToken(token) {
       throw err;
     }
   }
-  fs.writeFileSync(TOKEN_PATH, JSON.stringify(token));
+  fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
+    if (err) {
+      console.log('error:', err);
+    }
+  });
   console.log('Token stored to ' + TOKEN_PATH);
 }
 
@@ -200,7 +204,11 @@ function uploadCompressed(torrent) {
           deleteFile(file, torrent.path);
         });
 
-        fs.unlink(__dirname + '/' + title);
+        fs.unlink(__dirname + '/' + title, (err) => {
+          if (err) {
+            console.log('error:', err);
+          }
+        });
       }
     });
   });
